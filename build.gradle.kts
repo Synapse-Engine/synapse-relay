@@ -52,10 +52,23 @@ tasks.jar {
     enabled = false
 }
 
+tasks.distZip {
+    enabled = false
+}
+
+tasks.distTar {
+    enabled = false
+}
+
+tasks.startScripts {
+    enabled = false
+}
+
 tasks.shadowJar {
     archiveClassifier.set("")
     mergeServiceFiles()
     duplicatesStrategy = DuplicatesStrategy.INCLUDE
+    exclude("META-INF/LICENSE.txt", "META-INF/LICENSE.md", "META-INF/NOTICE.md")
     manifest {
         attributes["Main-Class"] = application.mainClass.get()
     }

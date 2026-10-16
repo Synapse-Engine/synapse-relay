@@ -1,0 +1,211 @@
+openapi: 3.1.2
+info:
+  title: Synapse Relay
+  description: The Synapse Relay API lets a game server and a web editor exchange graph documents over HTTP.
+  version: "1.0"
+  license:
+    name: MIT
+    url: https://github.com/Synapse-Engine/synapse-relay/blob/main/LICENSE
+servers:
+  - url: ../
+tags:
+  - name: Sessions
+    description: Editor sessions.
+  - name: Revisions
+    description: Saved documents.
+paths:
+  /v1/sessions:
+    post:
+      summary: Create a session
+      operationId: create-session
+      description: >
+        Stores a JSON document and opens an editor session. The game server then
+        connects a WebSocket to /v1/sessions/{id}/server, using the same API key
+        when authorization is enabled.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SessionDocument"
+      responses:
+        "201":
+          description: Session created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SessionCreated"
+        "400":
+          description: The body is not a JSON object
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "413":
+          description: The body is larger than the configured limit
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+      tags:
+        - Sessions
+  /v1/sessions/{id}:
+    get:
+      summary: Read the latest document
+      operationId: get-session
+      parameters:
+        - $ref: "#/components/parameters/sessionId"
+      responses:
+        "200":
+          description: The latest document
+          headers:
+            X-Synapse-Revision:
+              schema:
+                type: string
+              description: Id of the revision that was returned
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SessionDocument"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+      tags:
+        - Sessions
+    put:
+      summary: Save a new revision
+      operationId: save-session
+      description: >
+        Stores a new revision. If the game server is connected, the relay waits
+        for it to apply or reject the save. Otherwise the document is stored
+        for a later apply.
+      parameters:
+        - $ref: "#/components/parameters/sessionId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SessionDocument"
+      responses:
+        "200":
+          description: The save result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SaveResult"
+        "400":
+          description: The body is not a JSON object
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "413":
+          description: The body is larger than the configured limit
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+      tags:
+        - Sessions
+  /v1/revisions/{revision}:
+    get:
+      summary: Read one revision
+      operationId: get-revision
+      parameters:
+        - $ref: "#/components/parameters/revision"
+      responses:
+        "200":
+          description: The saved document
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SessionDocument"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+      tags:
+        - Revisions
+components:
+  securitySchemes:
+    apikey:
+      type: http
+      scheme: bearer
+      description: API key used to authenticate
+  parameters:
+    sessionId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+      description: A session id
+    revision:
+      name: revision
+      in: path
+      required: true
+      schema:
+        type: string
+      description: A revision id
+  responses:
+    Unauthorized:
+      description: Missing or unknown API key
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    NotFound:
+      description: No session or revision exists for that id
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+  schemas:
+    SessionDocument:
+      type: object
+      description: JSON object stored for the session.
+      additionalProperties: true
+    SessionCreated:
+      type: object
+      required:
+        - sessionId
+        - expiresAt
+      properties:
+        sessionId:
+          type: string
+        expiresAt:
+          type: string
+          format: date-time
+    SaveResult:
+      type: object
+      required:
+        - revision
+        - status
+      properties:
+        revision:
+          type: string
+        status:
+          type: string
+          enum:
+            - applied
+            - rejected
+            - stored
+        reason:
+          type: string
+    Error:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: string
+security:
+  - apikey: []

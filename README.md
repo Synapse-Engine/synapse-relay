@@ -1,36 +1,52 @@
-# synapse-relay
+# Synapse Relay
 
-Ephemeral session service between a Synapse game server and the web editor. The process keeps sessions in memory and drops them on restart.
+REST API for Synapse
 
-## Build
+* [API Documentation | Swagger](https://petstore.swagger.io/?url=https://raw.githubusercontent.com/Synapse-Engine/synapse-relay/main/src/main/resources/synapse-openapi.yml)
 
-```
-./gradlew check
-./gradlew shadowJar
-```
+## Information
 
-The runnable jar is `build/libs/synapse-relay-0.1.0-SNAPSHOT.jar`. Its main class is `io.synapseproject.relay.RelayMain`.
+* The relay passes graph data between a game server and the web editor.
+* Run it as a standalone application.
+* The API is still a work in progress. Please submit bugs and suggestions in the issues section.
 
-```
-java -jar build/libs/synapse-relay-0.1.0-SNAPSHOT.jar
-```
+## Usage
+
+1. Clone the repository.
+2. Compile with Gradle (`./gradlew build`).
+3. Run `java -jar build/libs/synapse-relay-0.1.0-SNAPSHOT.jar`.
+4. The API is accessible (by default) at `http://127.0.0.1:8080`.
 
 ## Configuration
 
-- `SYNAPSE_RELAY_PORT` — listen port. Default `8080`.
-- `SYNAPSE_RELAY_MAX_BYTES` — maximum JSON body size. Default `1048576`.
-- `SYNAPSE_RELAY_IDLE_TTL` — idle session lifetime, ISO-8601 duration. Default `PT30M`.
-- `SYNAPSE_RELAY_ABSOLUTE_TTL` — maximum session lifetime, ISO-8601 duration. Default `PT2H`.
-- `SYNAPSE_RELAY_ACK_TIMEOUT` — how long a save waits for the plugin socket, ISO-8601 duration. Default `PT10S`.
+The app can be configured using environment variables.
 
-## HTTP API
+| Environment Variable         | Description                                          | Default Value |
+|------------------------------|------------------------------------------------------|---------------|
+| `SYNAPSE_RELAY_PORT`         | The port that the HTTP server should listen on       | `8080`        |
+| `SYNAPSE_RELAY_AUTH`         | If API key authorization is enabled                  | `false`       |
+| `SYNAPSE_RELAY_AUTH_KEYS`    | A comma-separated list of accepted API keys          | *none*        |
+| `SYNAPSE_RELAY_MAX_BYTES`    | Maximum JSON body size, in bytes                     | `1048576`     |
+| `SYNAPSE_RELAY_IDLE_TTL`     | How long a session can sit idle before it is deleted | `PT30M`       |
+| `SYNAPSE_RELAY_ABSOLUTE_TTL` | The longest a session is kept                        | `PT2H`        |
+| `SYNAPSE_RELAY_ACK_TIMEOUT`  | How long a save waits for the game server to respond | `PT10S`       |
 
-`POST /v1/sessions` with a JSON object creates a session and returns `sessionId`, `serverToken`, `editorToken`, and `expiresAt`.
+## Security
 
-`GET /v1/sessions/{id}` reads the latest document. Send `Authorization: Bearer` with either token. The response includes `X-Synapse-Revision`.
+By default, run the API so it is only reachable on the host machine.
+For this reason, authentication is disabled by default.
 
-`PUT /v1/sessions/{id}` stores a new revision. Only the editor token can write. The response status is `applied`, `rejected`, or `stored`.
+If you make the API available over a wider network, configure authentication using API keys and enable HTTPS by exposing the API behind a reverse proxy.
 
-`GET /v1/revisions/{revision}` reads one revision. The revision id is the read capability. It does not grant writes.
+Enable auth by setting `SYNAPSE_RELAY_AUTH` to true, and setting `SYNAPSE_RELAY_AUTH_KEYS` to a comma separated list of allowed API keys.
 
-The plugin keeps one WebSocket open at `/v1/sessions/{id}/server` using the server token.
+```yml
+SYNAPSE_RELAY_AUTH: "true"
+SYNAPSE_RELAY_AUTH_KEYS: "secureapikey,anothersecurekey"
+```
+
+Once enabled, API keys should be sent as a `Bearer` token inside the `Authorization` header of API requests.
+
+```
+Authorization: Bearer myverysecureapikey
+```
